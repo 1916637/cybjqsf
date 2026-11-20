@@ -1,6 +1,20 @@
+<div align="center">
+
 # 创游编辑器私服 · 复活交接包（Revive Kit）
 
-> **用途**：旧服务器可能到期/遗忘时，把本包交给**有终端能力的 AI Agent**（或自己照做），
+**停服复活教程 · 服务端 + 客户端改包工具 + 部署接入运维文档**
+
+![visibility](https://img.shields.io/badge/visibility-private-2f8f46)
+![language](https://img.shields.io/badge/language-Python-3776AB)
+![platform](https://img.shields.io/badge/platform-Linux-181717)
+![kit](https://img.shields.io/badge/kit-revive--kit-58a6ff)
+
+</div>
+
+---
+
+> [!NOTE] 用途
+> 旧服务器可能到期/遗忘时，把本包交给**有终端能力的 AI Agent**（或自己照做），
 > 在一台**全新的 Linux 服务器**上从零重建整套私服，让客户端连上**新服务器**。
 >
 > **本包不含任何旧服务器 IP、真实账号数据、后台密码。** 唯一要填的是新服务器公网 IP。
@@ -10,7 +24,17 @@
 本仓库是「创游编辑器」停服后的整套复活教程与交接包：在一台全新 Linux 服务器上从零重建私服服务端，配合改包并重签名的客户端，让手机 App 重新连上自建服务器。包内包含服务端源码、客户端逆向结论与改包/签名/校验工具、部署与手机接入及运维文档，以及干净空库；不含任何旧服务器地址、真实账号数据或后台凭据。
 
 **GitHub 仓库一句话简介（repo description）**：
+
 > 创游编辑器停服复活教程：Python 私服服务端 + 客户端改包/重签名工具 + 部署接入运维文档。
+
+---
+
+## 目录
+
+- [三步走（快速上手）](#三步走详细版见-docs00_ai复活交接手册md)
+- [包里有什么](#包里有什么)
+- [关键设计：为什么没有 V3 成品 APK](#关键设计为什么没有-v3-成品-apk)
+- [给接手 AI 的三条硬提醒](#给接手-ai-的三条硬提醒)
 
 ---
 
@@ -31,7 +55,6 @@ NEWIP=$(grep '^YOUR_SERVER_IP=' conf/revive.env | cut -d= -f2-)
 PRIVSRV_IP=$NEWIP python3 client/tools/build_revived_apk.py
 bash client/tools/sign_apk.sh
 python3 client/tools/verify_apk.py --expect-ip "$NEWIP"
-```
 
 # 3) 手机接入（AI 做不了，交给持有者）
 #    卸载原版 → 装已签名 APK → 装根 CA → WiFi 代理填 <新服务器IP>:8080
@@ -43,7 +66,7 @@ python3 client/tools/verify_apk.py --expect-ip "$NEWIP"
 ## 包里有什么
 
 | 目录 | 内容 |
-|---|---|
+| :--- | :--- |
 | `conf/revive.env` | **唯一必填**：新服务器 IP（可选填 `FORBID_IPS` 旧 IP 用于校验成品不连回旧机） |
 | `docs/00_AI复活交接手册.md` | **主文档**：架构、5 步流程、验收清单、排错、踩坑记录 |
 | `docs/01_客户端改动清单.md` | V3 的 4 处补丁逐字还原 + XXTEA 密钥与格式 + 签名说明 |
@@ -55,6 +78,8 @@ python3 client/tools/verify_apk.py --expect-ip "$NEWIP"
 | `client/hotfix/` | 历史热修脚本（参考） |
 | `server/` | **完整服务端**：6 个 Python 服务 + 数据层 + lz4 编码依赖 + systemd 单元 + nginx 模板 + 一键脚本 + 干净空库 |
 
+---
+
 ## 关键设计：为什么没有 V3 成品 APK
 
 历史上真机验证成功的最终版是 **V3 修复版**，但它的加密 `index.jsc` 里**编译进了旧服务器 IP**
@@ -63,6 +88,8 @@ python3 client/tools/verify_apk.py --expect-ip "$NEWIP"
 所以本包改为：**原版干净基底 + 参数化补丁脚本**，把 V3 的 4 处改动逐字保留、只把 IP 换成
 由 `PRIVSRV_IP` 注入的新值。用新 IP 跑一遍，得到与 V3 等价、但指向新服务器的客户端。
 这样「教程不出现旧 IP」和「能复活出成功版本」同时成立。
+
+---
 
 ## 给接手 AI 的三条硬提醒
 
