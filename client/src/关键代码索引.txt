@@ -1,0 +1,49 @@
+主逻辑文件: 全部源码/assets/main/index.e248a.js  (240万字符, 4.7万行)
+消息schema/协议: 全部源码/src/assets/scripts/libs/orange/orange.d3c22.js
+
+【启动链 LoginScene】
+47361  loginFlow: if(yield checkUpdateApp()) return
+47390  loginFlow: "登录中.." → orangeLogin (WS连接)
+47398  loginFlow: "登录中..." → roleLogin(), null 时重试3次
+47407  if(!a) return false            ← roleLogin 失败则不进首页
+47410  Enter("HomeScene", e=>e.checkPanel(a))   ← 进首页, 把 Game_RLogin 对象 a 传进去
+47561  roleLogin() 完整实现
+47669  checkUpdateApp()
+
+【roleLogin 反序列化】
+47572  SendCmdAsync({cmd:Game_Login}, Game_RLogin)
+47586  DynamicMng.Ins.init(e.dynamicConfig)
+47587  Mng.initMine(e) / CreditMng.credit = e.role.creditScore ... 逐字段读取
+47611  e.newGameDatas / e.followGameDatas → DiscoverMng.freshGames
+47619  GuideMng.startUpdate()
+
+【SendCmdAsync / DecodeMsg】
+50969  SendCmdAsync: code==0 ? DecodeMsg(o.decBody, t) : null
+50998  DecodeMsg(e,t): o=new t(); o.setValue(e); return o
+       ← 只有回包 decBody 的 key 命中 schema 才会被赋值, 否则用构造函数默认值
+
+【Game_RLogin 字段 schema】
+79307  class Zo (Game_RLogin) 构造函数默认值
+79334  i([se(1,GDRole)])  role ; se(5) dynamicConfig(Map) ; 各类数组默认 []
+79364  o.Game_RLogin = Zo
+81520  GDRole(Me) 字段表: creditScore/coin/follows/goodsIds/customColors/completeTaskIds/...
+
+【orange 强类型反序列化】
+orange.d3c22.js:696  DataBase.setValue: 遍历回包key, 只赋值schema注册字段
+orange.d3c22.js:1025 decodeMsg / 1072 HTTP: decBody=bon.decode(body)
+orange.d3c22.js:1586 WS doReceive: n.decBody = n.body && bon.decode(n.body); i.resolve(n)
+orange.d3c22.js:1597 resp===seq 时 resolve
+
+【首页内容数据来源(全是 WS 指令, 非 HTTP)】
+20026 DiscoverMng: freshGames / followGameDatas, append 时发 Game_GetNewGameList
+6592/9086 loadGames ; 9220 getAbChosenConfig
+44181 HomeScene.checkPanel(a): 读 a.canObtainTTCoin/offLineChangeMsg/saleSummarys/...
+
+【结论: 首页内容区空白根因】
+服务端 game_login 回包的 decBody 只含 roleId/userId/userName/sessionId/data:{},
+这些 key 没有一个在 Game_RLogin schema 中注册 → setValue 静默忽略 →
+Game_RLogin 全部保持默认空值(role为空角色, newGameDatas=[], followGameDatas=[], hotGameIdList=[])
+→ 登录成功(code=0, roleLogin 非 null)、HomeScene 框架(tab栏)正常构建,
+但 checkPanel 与各内容 Page 无数据可渲染 → 内容区空白。
+修复方向: 按 Zo/GDRole schema 在 game_login 的 decBody 里补齐字段(尤其 role/newGameDatas 等),
+并让 App 进入首页后发出的 GetNewGameList 等 WS 指令得到正确响应。

@@ -1,0 +1,74 @@
+# 创游编辑器私服 · 复活交接包（Revive Kit）
+
+> **用途**：旧服务器可能到期/遗忘时，把本包交给**有终端能力的 AI Agent**（或自己照做），
+> 在一台**全新的 Linux 服务器**上从零重建整套私服，让客户端连上**新服务器**。
+>
+> **本包不含任何旧服务器 IP、真实账号数据、后台密码。** 唯一要填的是新服务器公网 IP。
+
+## 仓库简介
+
+本仓库是「创游编辑器」停服后的整套复活教程与交接包：在一台全新 Linux 服务器上从零重建私服服务端，配合改包并重签名的客户端，让手机 App 重新连上自建服务器。包内包含服务端源码、客户端逆向结论与改包/签名/校验工具、部署与手机接入及运维文档，以及干净空库；不含任何旧服务器地址、真实账号数据或后台凭据。
+
+**GitHub 仓库一句话简介（repo description）**：
+> 创游编辑器停服复活教程：Python 私服服务端 + 客户端改包/重签名工具 + 部署接入运维文档。
+
+---
+
+## 三步走（详细版见 `docs/00_AI复活交接手册.md`）
+
+```bash
+# 0) 填 IP —— 唯一必填
+vi conf/revive.env          # YOUR_SERVER_IP=<新服务器的公网IP>
+bash scripts/sync_ip.sh     # 同步进服务端配置
+
+# 1) 服务端：部署到固定路径 /opt/privsrv
+sudo mkdir -p /opt/privsrv && sudo cp -a server/. /opt/privsrv/
+cd /opt/privsrv && sudo bash scripts/install.sh && bash scripts/check.sh
+
+# 2) 客户端：用新 IP 重建「V3 等价」安装包（原版基底 + 参数化补丁 + 重签名）
+cd <包根>
+NEWIP=$(grep '^YOUR_SERVER_IP=' conf/revive.env | cut -d= -f2-)
+PRIVSRV_IP=$NEWIP python3 client/tools/build_revived_apk.py
+bash client/tools/sign_apk.sh
+python3 client/tools/verify_apk.py --expect-ip "$NEWIP"
+```
+
+# 3) 手机接入（AI 做不了，交给持有者）
+#    卸载原版 → 装已签名 APK → 装根 CA → WiFi 代理填 <新服务器IP>:8080
+#    → 手机号随便填、验证码 1234。详见 docs/02_手机接入指南.md
+```
+
+---
+
+## 包里有什么
+
+| 目录 | 内容 |
+|---|---|
+| `conf/revive.env` | **唯一必填**：新服务器 IP（可选填 `FORBID_IPS` 旧 IP 用于校验成品不连回旧机） |
+| `docs/00_AI复活交接手册.md` | **主文档**：架构、5 步流程、验收清单、排错、踩坑记录 |
+| `docs/01_客户端改动清单.md` | V3 的 4 处补丁逐字还原 + XXTEA 密钥与格式 + 签名说明 |
+| `docs/02_手机接入指南.md` | 面向设备操作者（占位符版） |
+| `docs/03_服务端运维.md` / `04_合规与已知限制.md` | 运维速查 / 边界说明 |
+| `client/base/` | **原版 APK 基底**（干净，不含任何私服地址） |
+| `client/tools/` | 解密 `extract_all.py`、参数化重打包 `build_revived_apk.py`、签名 `sign_apk.sh`、校验 `verify_apk.py` |
+| `client/src/` | 全部解密源码 + 关键代码索引 + 逆向结论（约 4.5 MB） |
+| `client/hotfix/` | 历史热修脚本（参考） |
+| `server/` | **完整服务端**：6 个 Python 服务 + 数据层 + lz4 编码依赖 + systemd 单元 + nginx 模板 + 一键脚本 + 干净空库 |
+
+## 关键设计：为什么没有 V3 成品 APK
+
+历史上真机验证成功的最终版是 **V3 修复版**，但它的加密 `index.jsc` 里**编译进了旧服务器 IP**
+（`ws://旧IP/agent` 与 `http://旧IP`），直接沿用会连回已停用的旧机。
+
+所以本包改为：**原版干净基底 + 参数化补丁脚本**，把 V3 的 4 处改动逐字保留、只把 IP 换成
+由 `PRIVSRV_IP` 注入的新值。用新 IP 跑一遍，得到与 V3 等价、但指向新服务器的客户端。
+这样「教程不出现旧 IP」和「能复活出成功版本」同时成立。
+
+## 给接手 AI 的三条硬提醒
+
+1. **别跳过自检**：`build_revived_apk.py` 内置 XXTEA round-trip、锚点唯一、占位符计数、
+   jsc 回读、条目比对 5 项断言，失败即停——锚点 `count!=1` 说明基底版本不匹配，**不要硬改**。
+2. **nginx 是最大变量**：包内是标准七层模板，目标机若已有站点/用四层 SNI 分发，
+   `install.sh` 只会警告不中断，会出现「6 服务全 active 但连不上」。先 `nginx -t` 合并配置。
+3. **没有真机就别宣布成功**：APP 能否登录、首页/发现页是否空白，只有手机能判。
+   你能完成的是「服务端部署 + 客户端生成 + 服务端自检全绿」。
